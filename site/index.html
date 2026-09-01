@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Sehgal Autoriders — Receipt Upload</title>
+<style>
+  :root {
+    --bg: #f2f4f7; --card-bg: #ffffff; --text: #1a1d23; --muted: #5b6472;
+    --border: #d7dce3; --accent: #0a66c2; --accent-text: #ffffff;
+    --input-bg: #ffffff; --footer-text: #6b7280; --error: #c0392b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --card-bg: #1a1d24; --text: #f1f3f6; --muted: #a3adba;
+      --border: #333844; --accent: #4d9fff; --accent-text: #0a0d12;
+      --input-bg: #12151b; --footer-text: #8a93a3; --error: #ff6b5e;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    font-size: 16px; line-height: 1.5;
+  }
+  body { display: flex; justify-content: center; padding: 24px 16px 40px; }
+  .card {
+    width: 100%; max-width: 480px; background: var(--card-bg);
+    border: 1px solid var(--border); border-radius: 14px; padding: 24px 20px 20px;
+  }
+  header { text-align: center; margin-bottom: 20px; }
+  header h1 { margin: 0; font-size: 1.35rem; font-weight: 700; letter-spacing: 0.2px; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 0.95rem; }
+  label { display: block; font-weight: 600; font-size: 0.92rem; margin: 16px 0 6px; }
+  input[type="text"], input[type="tel"], input[type="file"] {
+    width: 100%; font-size: 16px; padding: 12px 14px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--input-bg); color: var(--text);
+  }
+  input[type="file"] { padding: 10px 12px; }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .hint { color: var(--muted); font-size: 0.82rem; margin-top: 4px; }
+  button {
+    width: 100%; min-height: 52px; margin-top: 24px; background: var(--accent);
+    color: var(--accent-text); border: none; border-radius: 12px;
+    font-size: 1.05rem; font-weight: 700; cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; }
+  .file-name { display: block; margin-top: 6px; font-size: 0.85rem; color: var(--muted); word-break: break-all; }
+  .error { display: none; margin-top: 14px; color: var(--error); font-size: 0.9rem; text-align: center; }
+  footer { text-align: center; margin-top: 18px; color: var(--footer-text); font-size: 0.8rem; padding: 0 8px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <header>
+    <h1>Sehgal Autoriders Pvt. Ltd.</h1>
+    <p>UPI Receipt Upload</p>
+  </header>
+
+  <form id="receiptForm">
+    <label for="customer_name">Your Name</label>
+    <input type="text" id="customer_name" name="customer_name" required autocomplete="name">
+
+    <label for="mobile">Mobile Number</label>
+    <input type="tel" id="mobile" name="mobile" required inputmode="numeric"
+           pattern="[6-9][0-9]{9}" maxlength="10"
+           placeholder="10-digit mobile number" autocomplete="tel">
+    <div class="hint">10-digit Indian mobile number, no +91</div>
+
+    <label for="vehicle_no">Vehicle Number (optional)</label>
+    <input type="text" id="vehicle_no" name="vehicle_no" placeholder="e.g. MH12AB1234">
+
+    <label for="utr">UPI Reference / UTR (optional)</label>
+    <input type="text" id="utr" name="utr" placeholder="12-digit UPI transaction ID">
+
+    <label for="receipt">Upload Receipt Screenshot</label>
+    <input type="file" id="receipt" name="receipt" accept="image/*,.pdf" required>
+    <span class="file-name" id="fileName">No file selected</span>
+
+    <button type="submit" id="submitBtn">Submit Receipt</button>
+    <div class="error" id="errorBox"></div>
+  </form>
+
+  <footer>Your receipt goes directly to Sehgal Autoriders accounts team.</footer>
+</div>
+
+<script>
+  var SUBMIT_URL = 'https://tiwfuwfzjxcsbrifcdpu.supabase.co/functions/v1/avnihub-submit';
+  document.getElementById('receipt').addEventListener('change', function () {
+    var f = this.files && this.files[0];
+    document.getElementById('fileName').textContent = f ? f.name : 'No file selected';
+  });
+  document.getElementById('receiptForm').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var btn = document.getElementById('submitBtn');
+    var err = document.getElementById('errorBox');
+    err.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+    var fd = new FormData(this);
+    fd.append('site', 'sehgal-care');
+    fetch(SUBMIT_URL, { method: 'POST', body: fd })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j && j.ok) { window.location.href = 'thanks.html'; }
+        else { throw new Error((j && j.error) || 'submission failed'); }
+      })
+      .catch(function (e) {
+        err.textContent = 'Could not submit: ' + e.message + '. Please try again.';
+        err.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Submit Receipt';
+      });
+  });
+</script>
+</body>
+</html>

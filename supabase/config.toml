@@ -1,0 +1,7 @@
+project_id = "avnihub"
+
+[functions.avnihub-submit]
+verify_jwt = false
+
+[functions.avnihub-setup]
+verify_jwt = true
