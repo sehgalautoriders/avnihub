@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex, nofollow">
+<title>Avni Camera — send photos to the workshop PC</title>
+<!--
+  Avni Camera cloud relay — the phone side. Canonical copy:
+    D:\AE Brain\01 - Projects\02 - Camera Intelligence Project\cloud_page\index.html
+  Published on AvniHub (GitHub Pages): https://sehgalautoriders.github.io/avnihub/camera/
+
+  Ravi, 02-09-2026: "Same Wi-Fi anyone can do. What about Wi-Fi to 5G?" — this page is the
+  answer. It works from ANY network. It holds only the public anon key (public by design;
+  every browser app ships it). The lock is the storage policy on our Supabase: this page may
+  INSERT into camera-inbox/<live session token>/... and nothing else — it can never list,
+  read, change or delete a single file. The token comes from the QR (?s=...) or from the
+  6-digit code typed once (camera_claim). The workshop PC pulls each file within seconds.
+-->
+<style>
+  :root { color-scheme: light dark;
+    --bg:#f6f7f9; --card:#ffffff; --ink:#111827; --ink2:#4b5563; --ink3:#6b7280; --line:#e5e7eb;
+    --accent:#c2410c; --accent-ink:#ffffff; --ok:#15803d; --bad:#b91c1c; --soft:#fff7ed; }
+  @media (prefers-color-scheme: dark) { :root {
+    --bg:#0b0f14; --card:#151b23; --ink:#f3f4f6; --ink2:#c7cdd6; --ink3:#9aa3ad; --line:#2a3340;
+    --accent:#f97316; --accent-ink:#111111; --ok:#4ade80; --bad:#f87171; --soft:#1f2a1f; } }
+  * { box-sizing:border-box; }
+  html,body { margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; -webkit-text-size-adjust:100%; }
+  header { padding:14px 16px 10px; border-bottom:1px solid var(--line); background:var(--card); }
+  header .t { font-weight:800; font-size:18px; }
+  header .s { color:var(--ink3); font-size:13px; margin-top:2px; }
+  main { padding:16px; max-width:560px; margin:0 auto; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px; }
+  h1 { font-size:20px; margin:0 0 10px; }
+  p { margin:8px 0; color:var(--ink2); }
+  .code { width:100%; font:700 34px/1.2 ui-monospace,Consolas,monospace; letter-spacing:.35em; text-align:center;
+    padding:14px 8px; border:2px solid var(--line); border-radius:12px; background:var(--bg); color:var(--ink); }
+  .code:focus { outline:none; border-color:var(--accent); }
+  .btn { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:58px;
+    border-radius:14px; border:0; font-size:18px; font-weight:700; cursor:pointer; margin-top:12px;
+    background:var(--accent); color:var(--accent-ink); }
+  .btn.secondary { background:var(--card); color:var(--ink); border:2px solid var(--line); }
+  .btn[disabled] { opacity:.55; }
+  .link { background:none; border:0; color:var(--ink3); text-decoration:underline; font-size:14px; padding:12px 0; width:100%; }
+  .msg { min-height:22px; font-size:14px; margin-top:10px; }
+  .msg.bad { color:var(--bad); font-weight:600; } .msg.ok { color:var(--ok); font-weight:600; }
+  .status { display:flex; align-items:center; gap:8px; font-size:14px; color:var(--ink2); flex-wrap:wrap; }
+  .dot { width:10px; height:10px; border-radius:50%; background:var(--ok); box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 25%,transparent); }
+  .dot.off { background:var(--bad); box-shadow:none; }
+  .sum { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:12px 0 4px; }
+  .sum div { background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:10px 6px; text-align:center; }
+  .sum b { display:block; font-size:24px; font-variant-numeric:tabular-nums; }
+  .sum span { font-size:12px; color:var(--ink3); }
+  ul { list-style:none; margin:10px 0 0; padding:0; }
+  li { display:grid; grid-template-columns:1fr auto; gap:4px 10px; padding:10px 0; border-top:1px solid var(--line); font-size:14px; }
+  li .n { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+  li .st { color:var(--ink3); font-variant-numeric:tabular-nums; }
+  li .st.ok { color:var(--ok); font-weight:700; } li .st.bad { color:var(--bad); font-weight:700; }
+  li .bar { grid-column:1 / -1; height:6px; border-radius:6px; background:var(--line); overflow:hidden; }
+  li .bar i { display:block; height:100%; width:0; background:var(--accent); transition:width .2s; }
+  .small { font-size:12.5px; color:var(--ink3); }
+  input[type=file] { display:none; }
+</style>
+</head>
+<body>
+<header>
+  <div class="t">Avni Camera — Sehgal Motors</div>
+  <div class="s">Send photos to the workshop PC from anywhere — 5G, home Wi-Fi, any network.</div>
+</header>
+<main>
+  <section id="connect" class="card">
+    <h1>Type the 6-digit code shown on the workshop PC</h1>
+    <p>It is on the <b>Phone → Any network / 5G</b> tab of Avni Camera. Scanning the QR there skips this step.</p>
+    <input id="code" class="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="000000" aria-label="6-digit code">
+    <button id="go" class="btn">Connect</button>
+    <div id="cmsg" class="msg" role="status"></div>
+  </section>
+
+  <section id="send" class="card" hidden>
+    <div class="status"><span id="dot" class="dot"></span><span id="conn">Connected to the workshop PC</span> <span id="till" class="small"></span></div>
+    <label class="btn" for="pick">📷 Choose photos from the gallery<input type="file" id="pick" accept="image/*,video/*" multiple></label>
+    <label class="btn secondary" for="snap">Take a photo now<input type="file" id="snap" accept="image/*" capture="environment"></label>
+    <div class="sum">
+      <div><b id="nup">0</b><span>uploaded</span></div>
+      <div><b id="npc">0</b><span>on the PC</span></div>
+      <div><b id="nbad">0</b><span>failed</span></div>
+    </div>
+    <div id="smsg" class="msg" role="status"></div>
+    <ul id="list"></ul>
+    <button id="retry" class="btn secondary" hidden>Retry the failed ones</button>
+    <button id="other" class="link">Use a different code</button>
+    <p class="small">Photos go into the secured Avni cloud (private) and the workshop PC pulls them within seconds. Nothing is shared publicly.</p>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var SUPABASE_URL = "https://tiwfuwfzjxcsbrifcdpu.supabase.co";
+  // Public anon key - public by design (the same key ships inside every browser app of this project).
+  // The lock is Row Level Security on the server, not this string.
+  var ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpd2Z1d2Z6anhjc2JyaWZjZHB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1OTUxNTIsImV4cCI6MjEwMTE3MTE1Mn0.9nCkV795DHacIiqroP1m0ZvbbVsVjMHi8-okIwjERRc";
+  var BUCKET = "camera-inbox";
+  var KEY = "avni_camera_token";
+  var PARALLEL = 2;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var token = "";
+  var queue = [], active = 0, nUp = 0, nBad = 0, pollTimer = null;
+
+  function hdr(extra) {
+    var h = { "apikey": ANON, "Authorization": "Bearer " + ANON };
+    if (extra) for (var k in extra) h[k] = extra[k];
+    return h;
+  }
+  function rpc(name, args) {
+    return fetch(SUPABASE_URL + "/rest/v1/rpc/" + name, {
+      method: "POST", headers: hdr({ "Content-Type": "application/json" }), body: JSON.stringify(args)
+    }).then(function (r) { return r.ok ? r.json() : r.text().then(function (t) { throw new Error("HTTP " + r.status + " " + t.slice(0, 120)); }); });
+  }
+  function fmtTill(iso) {
+    try { var d = new Date(iso); return "valid till " + d.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); }
+    catch (e) { return ""; }
+  }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function stamp(ms) {
+    var d = new Date(ms || Date.now());
+    return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + "_" + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
+  }
+  function safeName(name) {
+    var n = String(name || "photo.jpg").replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^[._]+/, "");
+    return n || "photo.jpg";
+  }
+  function setMsg(el, text, cls) { el.textContent = text || ""; el.className = "msg" + (cls ? " " + cls : ""); }
+
+  // ---------------------------------------------------------------- connect --
+  function showConnect(reason) {
+    token = ""; try { sessionStorage.removeItem(KEY); } catch (e) {}
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    $("send").hidden = true; $("connect").hidden = false;
+    setMsg($("cmsg"), reason || "", reason ? "bad" : "");
+    $("code").value = ""; $("code").focus();
+  }
+  function showSend(status) {
+    $("connect").hidden = true; $("send").hidden = false;
+    $("conn").textContent = "Connected to " + (status && status.pc_name ? status.pc_name : "the workshop PC");
+    $("till").textContent = status && status.expires_at ? fmtTill(status.expires_at) : "";
+    $("npc").textContent = status && status.pulled != null ? status.pulled : "0";
+    $("dot").className = "dot";
+    if (!pollTimer) pollTimer = setInterval(poll, 4000);
+  }
+  function poll() {
+    if (!token) return;
+    rpc("camera_session_status", { p_token: token }).then(function (s) {
+      if (!s || !s.ok || !s.active) { showConnect("This code has expired or was stopped on the PC. Ask for the new code shown on the workshop PC."); return; }
+      $("npc").textContent = s.pulled;
+      $("dot").className = "dot";
+    }).catch(function () { $("dot").className = "dot off"; });
+  }
+  function connectWith(t) {
+    token = t; try { sessionStorage.setItem(KEY, t); } catch (e) {}
+    return rpc("camera_session_status", { p_token: t }).then(function (s) {
+      if (!s || !s.ok || !s.active) { showConnect("That code is not live any more. Read the code on the PC again."); return false; }
+      showSend(s); return true;
+    });
+  }
+  $("go").addEventListener("click", function () {
+    var code = ($("code").value || "").replace(/\D/g, "");
+    if (code.length !== 6) { setMsg($("cmsg"), "Type all 6 digits.", "bad"); return; }
+    $("go").disabled = true; setMsg($("cmsg"), "Checking the code…");
+    rpc("camera_claim", { p_code: code }).then(function (t) {
+      if (!t) { setMsg($("cmsg"), "Wrong or expired code. Read the 6 digits on the workshop PC and try again.", "bad"); return; }
+      setMsg($("cmsg"), "");
+      return connectWith(t);
+    }).catch(function (e) {
+      setMsg($("cmsg"), "Could not reach the Avni cloud (" + e.message + "). Check the phone's internet and try again.", "bad");
+    }).then(function () { $("go").disabled = false; });
+  });
+  $("code").addEventListener("keydown", function (e) { if (e.key === "Enter") $("go").click(); });
+  $("other").addEventListener("click", function () { showConnect(""); });
+
+  // ----------------------------------------------------------------- upload --
+  function addFiles(files) {
+    for (var i = 0; i < files.length; i++) {
+      var f = files[i];
+      var li = document.createElement("li");
+      li.innerHTML = '<span class="n"></span><span class="st">queued</span><div class="bar"><i></i></div>';
+      li.querySelector(".n").textContent = f.name + " · " + Math.max(1, Math.round(f.size / 1024)) + " KB";
+      $("list").insertBefore(li, $("list").firstChild);
+      queue.push({ file: f, li: li, tries: 0 });
+    }
+    setMsg($("smsg"), "");
+    pump();
+  }
+  function pump() {
+    while (active < PARALLEL && queue.length) { var job = queue.shift(); active++; upload(job); }
+    $("retry").hidden = !document.querySelector("li .st.bad");
+  }
+  function upload(job) {
+    var f = job.file, li = job.li, st = li.querySelector(".st"), bar = li.querySelector(".bar i");
+    var key = token + "/" + stamp(f.lastModified) + "_" + safeName(f.name);
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", SUPABASE_URL + "/storage/v1/object/" + BUCKET + "/" + key.split("/").map(encodeURIComponent).join("/"));
+    xhr.setRequestHeader("apikey", ANON);
+    xhr.setRequestHeader("Authorization", "Bearer " + ANON);
+    xhr.setRequestHeader("Content-Type", f.type || "application/octet-stream");
+    xhr.setRequestHeader("x-upsert", "false");
+    xhr.upload.onprogress = function (e) { if (e.lengthComputable) bar.style.width = Math.round(100 * e.loaded / e.total) + "%"; };
+    st.textContent = "uploading…"; st.className = "st";
+    xhr.onload = function () {
+      active--;
+      if (xhr.status >= 200 && xhr.status < 300) {
+        nUp++; $("nup").textContent = nUp; bar.style.width = "100%"; st.textContent = "✓ in Avni cloud"; st.className = "st ok";
+      } else if (xhr.status === 400 || xhr.status === 403) {
+        failed(job, "not allowed — the code may have expired");
+        poll();
+      } else {
+        failed(job, "HTTP " + xhr.status);
+      }
+      pump();
+    };
+    xhr.onerror = function () { active--; failed(job, "no connection"); pump(); };
+    xhr.ontimeout = function () { active--; failed(job, "timed out"); pump(); };
+    xhr.timeout = 300000;
+    xhr.send(f);
+  }
+  function failed(job, why) {
+    var st = job.li.querySelector(".st");
+    st.textContent = "✗ " + why; st.className = "st bad"; job.li.dataset.failed = "1"; job.li._job = job;
+    nBad++; $("nbad").textContent = nBad;
+    setMsg($("smsg"), "Some photos did not go through. Press “Retry the failed ones”.", "bad");
+  }
+  $("retry").addEventListener("click", function () {
+    var lis = document.querySelectorAll("li[data-failed='1']");
+    for (var i = 0; i < lis.length; i++) {
+      var job = lis[i]._job; if (!job) continue;
+      delete lis[i].dataset.failed; job.tries++; nBad = Math.max(0, nBad - 1);
+      lis[i].querySelector(".bar i").style.width = "0";
+      queue.push(job);
+    }
+    $("nbad").textContent = nBad; setMsg($("smsg"), "");
+    pump();
+  });
+  $("pick").addEventListener("change", function () { if (this.files && this.files.length) addFiles(this.files); this.value = ""; });
+  $("snap").addEventListener("change", function () { if (this.files && this.files.length) addFiles(this.files); this.value = ""; });
+
+  // ------------------------------------------------------------------ start --
+  var qs = new URLSearchParams(location.search);
+  var fromQr = qs.get("s");
+  var saved = ""; try { saved = sessionStorage.getItem(KEY) || ""; } catch (e) {}
+  if (fromQr) {
+    history.replaceState(null, "", location.pathname);
+    connectWith(fromQr).catch(function (e) { showConnect("Could not reach the Avni cloud (" + e.message + "). Check the phone's internet."); });
+  } else if (saved) {
+    connectWith(saved).catch(function () { showConnect(""); });
+  } else {
+    showConnect("");
+  }
+})();
+</script>
+</body>
+</html>
