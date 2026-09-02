@@ -26,6 +26,9 @@
     --bg:#0b0f14; --card:#151b23; --ink:#f3f4f6; --ink2:#c7cdd6; --ink3:#9aa3ad; --line:#2a3340;
     --accent:#f97316; --accent-ink:#111111; --ok:#4ade80; --bad:#f87171; --soft:#1f2a1f; } }
   * { box-sizing:border-box; }
+  /* An author rule like .btn{display:flex} outranks the browser's own [hidden]{display:none} - measured
+     02-09-2026 18:0x: the Retry button showed while hidden. This keeps `hidden` meaning hidden. */
+  [hidden] { display:none !important; }
   html,body { margin:0; background:var(--bg); color:var(--ink);
     font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; -webkit-text-size-adjust:100%; }
   header { padding:14px 16px 10px; border-bottom:1px solid var(--line); background:var(--card); }
