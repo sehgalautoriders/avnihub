@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#E8590C">
+<title>Avni Link</title>
+<!--
+  Avni Link - the phone side. Canonical copy:
+  D:/AE Brain/01 - Projects/18 - AvniHub/avnihub/site/link/index.html
+  Published to https://sehgalautoriders.github.io/avnihub/link/
+
+  Ravi, 03-09-2026: the PC and the phone must be connected whenever both have any
+  internet at all - home Wi-Fi, a customer Wi-Fi, 5G, or the laptop tethered to this
+  phone. Nothing here needs a LAN, a cable, developer mode or a port-forward: this page
+  and the PC agent both make OUTBOUND calls to our own Supabase and meet there.
+
+  This page holds only the public anon key (public by design) plus the token it earns by
+  pairing with a 6-digit code. The lock is Row Level Security on the server, not the key.
+-->
+<style>
+  :root{
+    --bg:#f6f6f4; --card:#ffffff; --ink:#14110e; --muted:#6b6660; --line:#e6e2dc;
+    --accent:#E8590C; --ok:#177245; --okbg:#e8f4ec; --bad:#9a1b1b; --badbg:#fdecec;
+    --warn:#8a6100; --warnbg:#fdf3dc;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#131211; --card:#1c1a18; --ink:#f3efe9; --muted:#a49d94; --line:#2e2a26;
+           --ok:#7fd6a3; --okbg:#16301f; --bad:#ff9d9d; --badbg:#3a1a1a;
+           --warn:#e9c46a; --warnbg:#332a12; }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:16px/1.45 "Inter",-apple-system,"Segoe UI",Roboto,sans-serif;
+       font-variant-numeric:tabular-nums;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+  header{padding:18px 18px 10px;display:flex;align-items:center;gap:10px}
+  .mark{width:28px;height:28px;border-radius:8px;background:var(--accent);flex:none}
+  h1{font-size:19px;margin:0;font-weight:650;letter-spacing:-.2px}
+  .sub{color:var(--muted);font-size:13px;margin-left:auto}
+  main{padding:0 14px 90px;max-width:560px;margin:0 auto}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+        padding:14px;margin:10px 0}
+  .row{display:flex;align-items:center;gap:10px}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:none}
+  .dot.on{background:var(--ok)} .dot.off{background:var(--bad)}
+  .name{font-weight:650;font-size:17px}
+  .meta{color:var(--muted);font-size:13px;margin-top:3px}
+  .pill{margin-left:auto;font-size:12px;padding:4px 9px;border-radius:999px;
+        background:var(--okbg);color:var(--ok);font-weight:600}
+  .pill.off{background:var(--badbg);color:var(--bad)}
+  .pill.wait{background:var(--warnbg);color:var(--warn)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+  button{font:inherit;font-weight:600;color:var(--ink);background:var(--card);
+         border:1px solid var(--line);border-radius:12px;padding:14px 12px;cursor:pointer}
+  button:active{transform:scale(.985)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button[disabled]{opacity:.5}
+  input{font:inherit;width:100%;padding:16px;border-radius:12px;border:1px solid var(--line);
+        background:var(--card);color:var(--ink);letter-spacing:.4em;text-align:center;
+        font-size:26px;font-weight:650}
+  .list{margin-top:8px}
+  .item{display:flex;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line);font-size:14px}
+  .item:last-child{border-bottom:0}
+  .item .sz{margin-left:auto;color:var(--muted);font-size:12px}
+  .hint{color:var(--muted);font-size:13px;margin:8px 2px}
+  .err{color:var(--bad);font-size:13px;margin-top:8px}
+  .foot{position:fixed;left:0;right:0;bottom:0;background:var(--card);
+        border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+        font-size:12px;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <div class="mark"></div>
+  <h1>Avni Link</h1>
+  <div class="sub" id="net"></div>
+</header>
+
+<main>
+  <section id="pair" hidden>
+    <div class="card">
+      <div class="name">Connect this phone to your PC</div>
+      <div class="meta">On the PC, open Avni Link and read the 6-digit code. Type it here.
+        You only do this once - after that the phone finds the PC by itself, on any internet.</div>
+      <div style="margin-top:14px"><input id="code" inputmode="numeric" pattern="[0-9]*"
+        maxlength="6" placeholder="000000" autocomplete="one-time-code"></div>
+      <div class="grid">
+        <button class="primary" id="doPair">Connect</button>
+        <button id="clearCode">Clear</button>
+      </div>
+      <div class="err" id="pairErr"></div>
+    </div>
+  </section>
+
+  <section id="live" hidden>
+    <div class="card">
+      <div class="row">
+        <span class="dot" id="dot"></span>
+        <div>
+          <div class="name" id="pcName">-</div>
+          <div class="meta" id="pcMeta">looking for your PC...</div>
+        </div>
+        <span class="pill wait" id="pill">Checking</span>
+      </div>
+      <div class="grid">
+        <button id="bStatus">PC status</button>
+        <button id="bFiles">Files on D:</button>
+        <button id="bWake">Keep PC awake</button>
+        <button id="bPing">Check now</button>
+      </div>
+    </div>
+
+    <div class="card" id="out" hidden>
+      <div class="row"><div class="name" id="outTitle">Result</div>
+        <span class="pill wait" id="outPill">working</span></div>
+      <div id="outBody" class="list"></div>
+    </div>
+
+    <div class="hint">This link works on Wi-Fi, on 5G, and when the laptop is using this
+      phone hotspot. Nothing has to be on the same network.</div>
+    <div class="grid"><button id="unpair">Forget this PC</button></div>
+  </section>
+</main>
+
+<div class="foot" id="foot">Avni Link</div>
+
+<script src="link.js"></script>
+</body>
+</html>
