@@ -68,9 +68,10 @@ button.act[disabled]{opacity:.45}
 button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);
   font-weight:600;letter-spacing:0;font-size:14px;padding:13px}
 
-input#code{font:inherit;width:100%;padding:13px;border-radius:var(--r);
+input#code,input#pw{font:inherit;width:100%;padding:13px;border-radius:var(--r);
   border:1px solid var(--line);background:var(--bg);color:var(--ink);text-align:center;
   letter-spacing:.4em;font-size:25px;font-weight:800}
+input#pw{text-align:left;letter-spacing:.08em;font-size:17px;font-weight:600}
 input#code::placeholder{letter-spacing:.25em;font-weight:400;color:var(--dim)}
 
 ul{list-style:none;margin:0;padding:0}
@@ -114,8 +115,14 @@ li{display:flex;align-items:center;gap:10px;padding:11px 13px;background:var(--p
   <section class="panel on" id="p-pair">
     <div class="card">
       <h2>Link this phone</h2>
-      <p class="note" style="margin-top:0">Type the six digits showing on the PC.</p>
+      <p class="note" style="margin-top:0">The Windows password of the PC. It stays on this
+        phone — only a proof is sent.</p>
+      <div style="height:8px"></div>
+      <input id="pw" type="password" placeholder="Windows password" autocomplete="current-password"
+             style="letter-spacing:.08em;font-size:17px;font-weight:600;text-align:left">
       <div style="height:11px"></div>
+      <p class="note" style="margin-top:0">The six digits showing on the PC.</p>
+      <div style="height:8px"></div>
       <input id="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" autocomplete="off">
       <div style="height:11px"></div>
       <button class="act" id="link">LINK</button>
@@ -209,10 +216,29 @@ function show(tab){
 }
 $('tabs').onclick = e => { const b = e.target.closest('button'); if (b) show(b.dataset.tab); };
 
-/* ---------------- linking ---------------- */
+/* ---------------- linking: password never leaves this phone ---------------- */
+/* Both ends compute   key   = PBKDF2-SHA256(password, nonce, rounds)
+                       proof = HMAC(key, code)              -> the only thing sent
+                       token = HMAC(key, "avni-link-token:" + id)   -> never sent at all
+   The PC verifies the proof against the password it checked with Windows, and derives
+   the same token. A photographed QR + six digits cannot produce either. */
+
+const enc = s => new TextEncoder().encode(s);
+const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,'0')).join('');
+
+async function deriveKey(password, nonce, rounds){
+  const base = await crypto.subtle.importKey('raw', enc(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    {name:'PBKDF2', salt: enc(nonce), iterations: rounds, hash:'SHA-256'}, base, 256);
+  return crypto.subtle.importKey('raw', bits, {name:'HMAC', hash:'SHA-256'}, false, ['sign']);
+}
+const hmacHex = async (key, text) => hex(await crypto.subtle.sign('HMAC', key, enc(text)));
+const sha256Hex = async text => hex(await crypto.subtle.digest('SHA-256', enc(text)));
 
 async function doLink(){
   const code = $('code').value.replace(/\D/g,'');
+  const pw = $('pw').value;
+  if (!pw){ say($('pairMsg'), 'The Windows password of the PC, please.', 'warn'); return; }
   if (code.length !== 6){ say($('pairMsg'), 'Six digits, please.', 'warn'); return; }
   $('link').disabled = true;
   say($('pairMsg'), 'Checking…');
@@ -220,18 +246,56 @@ async function doLink(){
     const r = await fetch(PUBLIC + 'link/claim-' + code + '.json?t=' + Date.now(), {cache:'no-store'});
     if (!r.ok) throw new Error('That code is not open. Show a new one on the PC.');
     const c = await r.json();
-    if (!c.token) throw new Error('That code has already been used.');
+    if (!c.nonce) throw new Error('That code has already been used.');
+
+    say($('pairMsg'), 'Proving the password…');
+    const key   = await deriveKey(pw, c.nonce, c.rounds || 200000);
+    const proof = await hmacHex(key, code);
+    const token = await hmacHex(key, 'avni-link-token:' + c.id);
+    const manifest = (c.public || PUBLIC) + 'link/' + (await sha256Hex(token)).slice(0, 40) + '.json';
+    $('pw').value = '';
+
     const label = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || 'Phone';
-    await fetch(c.hello, {method:'PUT', headers:{'Content-Type':'application/json'},
-                          body: JSON.stringify({name: label, at: new Date().toISOString()})});
-    S = {token:c.token, id:c.id, manifest:c.manifest, pc:c.pc};
+    const put = await fetch(c.hello, {method:'PUT', headers:{'Content-Type':'application/json'},
+                 body: JSON.stringify({name: label, proof, at: new Date().toISOString()})});
+    if (!put.ok) throw new Error('Could not reach the cloud (' + put.status + ').');
+
+    // The PC answers by publishing this phone's manifest - only if the proof was right.
+    say($('pairMsg'), 'Waiting for the PC to accept…');
+    const until = Date.now() + 45000;
+    let accepted = false;
+    while (Date.now() < until){
+      await new Promise(res => setTimeout(res, 1500));
+      const m = await fetch(manifest + '?t=' + Date.now(), {cache:'no-store'}).catch(() => null);
+      if (m && m.ok){ accepted = true; break; }
+    }
+    if (!accepted) throw new Error('The PC did not accept it. Check the password and try again.');
+
+    S = {token, id: c.id, manifest, pc: c.pc};
     store(S);
     say($('pairMsg'), 'Linked to ' + (c.pc || 'the PC') + '.', 'ok');
-    setTimeout(start, 600);
+    setTimeout(() => { start(); tryInstall(); }, 500);
   } catch(err){
     say($('pairMsg'), err.message, 'bad');
     $('link').disabled = false;
   }
+}
+
+/* (d) "the app is on the phone without the user installing it by hand" - Android never
+   installs anything with zero taps, so the floor is ONE tap on the system's own Install
+   sheet, raised the moment the link completes rather than hidden in a menu. */
+async function tryInstall(){
+  if (matchMedia('(display-mode: standalone)').matches) return;
+  if (installPrompt){
+    try {
+      installPrompt.prompt();
+      const {outcome} = await installPrompt.userChoice;
+      installPrompt = null;
+      if (outcome === 'accepted') return;
+    } catch(e){ /* fall through to the SETUP card */ }
+  }
+  show('setup');
+  $('addHint').innerHTML = 'Tap <b>ADD TO HOME SCREEN</b> once and Avni Share appears in every app\'s Share menu.';
 }
 
 /* ---------------- receive ---------------- */
