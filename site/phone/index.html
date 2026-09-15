@@ -102,7 +102,15 @@
 'use strict';
 const KEY = 'avni.link.v1';
 const $ = id => document.getElementById(id);
-const PUBLIC = location.href.split('/storage/v1/')[0] + '/storage/v1/object/public/avni-presence/';
+
+// This page is served by Avni Hub (GitHub Pages) because Supabase Storage answers every
+// public object with `Content-Security-Policy: default-src 'none'; sandbox` - no
+// allow-scripts, so not one line of this would run there. Storage still holds the JSON
+// (claims and manifests): a CSP binds the document it is served with, never a cross-origin
+// fetch, and the bucket returns `Access-Control-Allow-Origin: *`. So the address of the
+// cloud must be stated here, not inferred from where this page happens to live.
+const CLOUD  = 'https://tiwfuwfzjxcsbrifcdpu.supabase.co';
+const PUBLIC = CLOUD + '/storage/v1/object/public/avni-presence/';
 
 let S = null;          // {token, id, manifest}
 let timer = null;
