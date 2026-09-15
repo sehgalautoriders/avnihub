@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1220">
 <title>Avni Phone Link</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Avni">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔗</text></svg>">
 <style>
   :root{
@@ -47,6 +50,8 @@
   .size{color:var(--dim);font-size:13px;flex:none;font-variant-numeric:tabular-nums}
   .grab{flex:none;width:auto;padding:9px 16px;font-size:14px}
   .empty{color:var(--dim);text-align:center;padding:22px 0;font-size:15px}
+  .tip{color:var(--dim);font-size:13px;margin:12px 0 0;line-height:1.55}
+  .tip b{color:var(--ink)}
   .msg{margin-top:10px;font-size:14px;min-height:20px}
   .msg.ok{color:var(--ok)} .msg.bad{color:var(--bad)} .msg.warn{color:var(--warn)}
   .bar{height:5px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:9px;display:none}
@@ -90,6 +95,20 @@
   <button id="pick">Choose files</button>
   <div class="bar" id="bar"><i id="barFill"></i></div>
   <div class="msg" id="sendMsg"></div>
+  <p class="tip" id="shareTip">
+    Or share straight from any app — Photos, WhatsApp, anything — and pick
+    <b>Avni</b>. Add this page to your home screen once to switch that on.
+  </p>
+</section>
+
+<section class="card hide" id="install">
+  <h2>Put Avni in the share sheet</h2>
+  <p style="margin:0 0 14px;color:var(--dim);font-size:14px">
+    Add this to the home screen and <b>Avni</b> appears wherever you tap Share —
+    so a photo goes to the PC without opening this page at all.
+  </p>
+  <button id="addHome">Add to home screen</button>
+  <p class="tip" id="addHint"></p>
 </section>
 
 <section class="card hide" id="manage">
@@ -258,6 +277,63 @@ async function sendFiles(files){
   refresh();
 }
 
+/* ---------------- the Android share sheet ---------------- */
+/* A plain web page can never appear in the share sheet. A PWA can: the service worker
+   parks whatever the sheet posts, and this collects it and sends it on to the PC. */
+
+async function collectShared(){
+  const flag = new URLSearchParams(location.search).get('shared');
+  if (!flag) return;
+  history.replaceState(null, '', location.pathname);      // don't re-send on refresh
+  if (flag === 'error'){ say($('sendMsg'), 'That share could not be read.', 'bad'); return; }
+
+  try {
+    const park = await caches.open('avni-shared-v1');
+    const keys = await park.keys();
+    const files = [];
+    for (const req of keys){
+      const resp = await park.match(req);
+      if (!resp) continue;
+      const name = decodeURIComponent(resp.headers.get('X-Avni-Name') || 'shared');
+      files.push(new File([await resp.blob()], name,
+                          {type: resp.headers.get('Content-Type') || ''}));
+      await park.delete(req);
+    }
+    if (files.length){
+      say($('sendMsg'), 'Shared ' + files.length + ' item(s) — sending…');
+      await refresh();                                     // make sure slots are fresh
+      await sendFiles(files);
+    }
+  } catch(e){
+    say($('sendMsg'), 'Could not read the shared files.', 'bad');
+  }
+}
+
+let installPrompt = null;
+addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); installPrompt = e;
+  if (S) $('install').classList.remove('hide');
+});
+addEventListener('appinstalled', () => {
+  installPrompt = null;
+  $('install').classList.add('hide');
+  $('shareTip').innerHTML = 'Avni is in your share sheet now. From Photos or any app, tap ' +
+                            'Share and choose <b>Avni</b>.';
+});
+
+$('addHome').onclick = async () => {
+  if (installPrompt){
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome !== 'accepted'){
+      $('addHint').textContent = 'No problem — you can still send with Choose files.';
+    }
+    installPrompt = null;
+  } else {
+    $('addHint').innerHTML = 'Open the browser menu (⋮) and tap <b>Add to Home screen</b>.';
+  }
+};
+
 /* ---------------- boot ---------------- */
 
 function start(){
@@ -265,9 +341,14 @@ function start(){
   const linked = !!(S && S.token && S.manifest);
   $('pair').classList.toggle('hide', linked);
   for (const id of ['inbox','outbox','manage']) $(id).classList.toggle('hide', !linked);
+  const installed = matchMedia('(display-mode: standalone)').matches;
+  $('install').classList.toggle('hide', !linked || installed || !installPrompt);
+  if (installed){
+    $('shareTip').innerHTML = 'From Photos or any app, tap Share and choose <b>Avni</b>.';
+  }
   clearInterval(timer);
   if (linked){
-    refresh();
+    refresh().then(collectShared);
     timer = setInterval(refresh, 5000);
   } else {
     $('dot').className = 'dot';
@@ -276,6 +357,10 @@ function start(){
     $('link').disabled = false;
     $('code').value = '';
   }
+}
+
+if ('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
 $('link').onclick = doLink;
