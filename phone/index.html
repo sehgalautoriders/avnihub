@@ -3,110 +3,122 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0b1220">
+<meta name="theme-color" content="#1769e0">
 <title>Avni Share</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Avni">
+<meta name="apple-mobile-web-app-title" content="Avni Share">
 <link rel="icon" href="icon-192.png">
 <style>
-/* Ravi's six UI preferences: tab strip on top, ONE panel visible, never a long scrolling
-   page, dark AND light, high contrast, instant feedback. The first build broke the first
-   three - "it runs over the screen up and down ... occupies the entire screen". This one
-   is a fixed three-row frame: header, tabs, one panel. The page itself never scrolls. */
+/* AVNI UI CONSTITUTION - tokens and semantic roles only. Nothing local is invented here:
+   colours, radii, control height, font and motion are the Constitution's own values, and every
+   control carries a semantic role (primary / secondary / danger / ghost). Screen check:
+     objective  - move a file between this phone and the PC
+     primary    - Send (one per panel: Link / Send to PC / Add to home screen)
+     secondary  - Get (per row), Cancel-class actions
+     danger     - Unlink this phone
+     navigation - the tab strip; state - the connection dot and PC name; info - the notes
+   The six UI preferences also hold: tab strip on top, one panel visible, the page never scrolls. */
 :root{
-  --bg:#f2f4f8; --panel:#fff; --line:#dfe4ec; --ink:#0f151d; --dim:#5d6a7a;
-  --accent:#1565d8; --accent-ink:#fff; --ok:#0b7a40; --warn:#8a5200; --bad:#b3261e;
-  --r:12px;
+  --bg:#f4f7fb; --surface:#ffffff; --surface-2:#eef3f8; --text:#142033; --muted:#627084;
+  --border:#d8e0ea; --primary:#1769e0; --primary-hover:#0f5cc7; --primary-pressed:#0a4ea9;
+  --success:#16844a; --warning:#d99100; --warning-bg:#fff6da; --danger:#cc2f3b; --danger-hover:#b92631;
+  --focus:#5a95ff; --shadow:0 10px 26px rgba(30,45,68,.10);
+  --radius-sm:8px; --radius-md:12px; --radius-lg:18px;
+  --font:Inter,"Segoe UI",Roboto,Arial,sans-serif; --control-h:40px;
 }
 @media (prefers-color-scheme:dark){
-  :root{ --bg:#0b1220; --panel:#151d2b; --line:#28344a; --ink:#eef3fa; --dim:#95a3b8;
-         --accent:#4c9aff; --accent-ink:#06121f; --ok:#4ad98b; --warn:#ffc247; --bad:#ff6b5e; }
+  :root{ --bg:#10151d; --surface:#171e28; --surface-2:#202936; --text:#eef4fb; --muted:#a8b5c5;
+         --border:#334154; --shadow:0 10px 28px rgba(0,0,0,.28); --warning-bg:#382f15; }
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
-body{
-  margin:0;background:var(--bg);color:var(--ink);overflow:hidden;
-  font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
-  display:flex;flex-direction:column;
-  padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
-}
-.wrap{width:100%;max-width:520px;margin:0 auto;flex:1;min-height:0;
-      display:flex;flex-direction:column;padding:0 14px}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 var(--font);overflow:hidden;
+     display:flex;flex-direction:column;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.wrap{width:100%;max-width:520px;margin:0 auto;flex:1;min-height:0;display:flex;flex-direction:column;padding:0 16px}
 
-/* ---- header: one compact row ---- */
-header{display:flex;align-items:center;gap:9px;padding:12px 2px 10px;flex:none}
-.mark{font-size:17px;font-weight:800;letter-spacing:-.3px}
-.mark span{color:var(--accent)}
-.dot{width:9px;height:9px;border-radius:50%;background:var(--dim);flex:none}
-.dot.on{background:var(--ok)} .dot.off{background:var(--bad)}
-.state{margin-left:auto;font-size:12px;color:var(--dim);text-align:right;line-height:1.3}
+/* brand row */
+header{display:flex;align-items:center;gap:12px;padding:14px 0 12px;flex:none}
+.logo{width:38px;height:38px;border-radius:var(--radius-md);display:grid;place-items:center;
+      background:linear-gradient(145deg,#1769e0,#39a0ff);color:#fff;font-weight:800;box-shadow:var(--shadow)}
+.brand h1{font-size:16px;margin:0}
+.brand p{font-size:12px;color:var(--muted);margin:2px 0 0}
+.state{margin-left:auto;display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:#9ca8b8}
+.dot.on{background:var(--success)} .dot.off{background:var(--danger)}
 
-/* ---- tab strip ---- */
-nav{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);
-    border-radius:var(--r);padding:4px;flex:none}
-nav button{flex:1;font:inherit;font-weight:700;font-size:12.5px;letter-spacing:.06em;
-  border:0;background:transparent;color:var(--dim);padding:10px 4px;border-radius:9px}
-nav button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
-nav button b{display:inline-block;min-width:17px;padding:0 4px;margin-left:5px;
-  border-radius:9px;background:var(--bad);color:#fff;font-size:11px}
+/* tabs: one grammar, clear selected state */
+nav{display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:4px;flex:none}
+nav button{flex:1;font:inherit;font-weight:650;font-size:13px;min-height:36px;border:0;background:transparent;
+           color:var(--muted);border-radius:var(--radius-sm);cursor:pointer}
+nav button[aria-selected="true"]{background:var(--surface-2);color:var(--primary);box-shadow:inset 0 -2px 0 var(--primary)}
+nav button b{display:inline-block;min-width:18px;padding:0 5px;margin-left:6px;border-radius:999px;
+             background:var(--danger);color:#fff;font-size:11px;line-height:18px}
 
-/* ---- the one visible panel ---- */
-main{flex:1;min-height:0;display:flex;flex-direction:column;padding:12px 0 14px}
+/* one visible panel */
+main{flex:1;min-height:0;display:flex;flex-direction:column;padding:14px 0 16px}
 .panel{flex:1;min-height:0;display:none;flex-direction:column}
 .panel.on{display:flex}
-h2{font-size:11.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);
-   margin:0 0 9px;font-weight:700}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:13px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;box-shadow:0 4px 18px rgba(20,32,51,.05)}
+.card h4{margin:0 0 8px;font-size:15px}
+.card p{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
 .grow{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.gap{height:12px;flex:none}
 
-button.act{font:inherit;font-weight:800;font-size:15px;letter-spacing:.07em;border:0;
-  border-radius:var(--r);padding:16px;background:var(--accent);color:var(--accent-ink);
-  width:100%;display:block}
-button.act:active{transform:scale(.99)}
-button.act[disabled]{opacity:.45}
-button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);
-  font-weight:600;letter-spacing:0;font-size:14px;padding:13px}
+/* buttons: semantic roles, shared physics */
+button{font:inherit;border:0;cursor:pointer;transition:transform .08s ease,background .12s ease,border-color .12s ease,opacity .12s ease}
+button:active:not(:disabled){transform:translateY(1px) scale(.992)}
+button:focus-visible{outline:3px solid color-mix(in srgb,var(--focus) 45%,transparent);outline-offset:2px}
+.btn{min-height:var(--control-h);padding:0 16px;border-radius:var(--radius-sm);font-weight:650;
+     display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%}
+.btn.primary{background:var(--primary);color:#fff}
+.btn.primary:hover{background:var(--primary-hover)} .btn.primary:active{background:var(--primary-pressed)}
+.btn.secondary{background:var(--surface);border:1px solid var(--border);color:var(--text)}
+.btn.secondary:hover{background:var(--surface-2)}
+.btn.danger{background:var(--danger);color:#fff} .btn.danger:hover{background:var(--danger-hover)}
+.btn.compact{width:auto;padding:0 14px;min-height:36px;font-size:13px}
+.btn:disabled{cursor:not-allowed;opacity:.45;transform:none}
 
-input#code,input#pw{font:inherit;width:100%;padding:13px;border-radius:var(--r);
-  border:1px solid var(--line);background:var(--bg);color:var(--ink);text-align:center;
-  letter-spacing:.4em;font-size:25px;font-weight:800}
-input#pw{text-align:left;letter-spacing:.08em;font-size:17px;font-weight:600}
-input#code::placeholder{letter-spacing:.25em;font-weight:400;color:var(--dim)}
+/* inputs: one field family */
+.field{width:100%;min-height:var(--control-h);padding:0 12px;border-radius:var(--radius-sm);
+       border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit}
+.field:focus{outline:3px solid color-mix(in srgb,var(--focus) 45%,transparent);outline-offset:1px;border-color:var(--primary)}
+.field.code{text-align:center;letter-spacing:.35em;font-size:22px;font-weight:700;min-height:48px}
+.field.code::placeholder{letter-spacing:.2em;font-weight:400;color:var(--muted)}
+label{display:block;font-size:13px;color:var(--muted);margin:0 0 6px}
 
+/* rows */
 ul{list-style:none;margin:0;padding:0}
-li{display:flex;align-items:center;gap:10px;padding:11px 13px;background:var(--panel);
-   border:1px solid var(--line);border-radius:var(--r);margin-bottom:7px}
-.nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-    font-weight:600;font-size:14px}
-.sz{color:var(--dim);font-size:12px;flex:none;font-variant-numeric:tabular-nums}
-.get{flex:none;width:auto;padding:8px 15px;font-size:13px;letter-spacing:.04em}
-.empty{color:var(--dim);text-align:center;padding:26px 12px;font-size:14px;
-  border:1px dashed var(--line);border-radius:var(--r)}
-.note{color:var(--dim);font-size:12.5px;line-height:1.55;margin:10px 2px 0}
-.note b{color:var(--ink)}
-.msg{font-size:13px;min-height:18px;margin-top:9px}
-.msg.ok{color:var(--ok)} .msg.bad{color:var(--bad)} .msg.warn{color:var(--warn)}
-.bar{height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:8px;display:none}
-.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .18s}
+li{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);
+   border-radius:var(--radius-md);margin-bottom:8px}
+.nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:14px}
+.sz{color:var(--muted);font-size:12px;flex:none;font-variant-numeric:tabular-nums}
+.empty{color:var(--muted);text-align:center;padding:26px 12px;font-size:14px;border:1px dashed var(--border);border-radius:var(--radius-md)}
+
+/* messages: semantic */
+.msg{font-size:13px;min-height:18px;margin-top:10px;color:var(--muted)}
+.msg.ok{color:var(--success)} .msg.bad{color:var(--danger)}
+.msg.warn{color:var(--warning);background:var(--warning-bg);padding:8px 10px;border-radius:var(--radius-sm)}
+.bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:10px;display:none}
+.bar i{display:block;height:100%;width:0;background:var(--primary);transition:width .18s}
 .hide{display:none!important}
-.steps{margin:0;padding-left:19px;color:var(--dim);font-size:13px;line-height:1.75}
-.steps b{color:var(--ink)}
+.steps{margin:0;padding-left:18px;color:var(--muted);font-size:13px;line-height:1.7}
+.steps b{color:var(--text)}
 </style>
 </head>
 <body>
 <div class="wrap">
 
 <header>
-  <span class="dot" id="dot"></span>
-  <span class="mark">AVNI <span>SHARE</span></span>
-  <span class="state" id="state">starting…</span>
+  <div class="logo">A</div>
+  <div class="brand"><h1>Avni Share</h1><p id="sub">starting…</p></div>
+  <span class="state"><span class="dot" id="dot"></span><span id="state"></span></span>
 </header>
 
-<nav id="tabs" class="hide">
-  <button data-tab="send"  aria-selected="true">SEND</button>
-  <button data-tab="get"   aria-selected="false">RECEIVE<b id="badge" class="hide">0</b></button>
-  <button data-tab="setup" aria-selected="false">SETUP</button>
+<nav id="tabs" class="hide" aria-label="Sections">
+  <button data-tab="send"  aria-selected="true">Send</button>
+  <button data-tab="get"   aria-selected="false">Receive<b id="badge" class="hide">0</b></button>
+  <button data-tab="setup" aria-selected="false">Setup</button>
 </nav>
 
 <main>
@@ -114,36 +126,35 @@ li{display:flex;align-items:center;gap:10px;padding:11px 13px;background:var(--p
   <!-- ============ link this phone ============ -->
   <section class="panel on" id="p-pair">
     <div class="card">
-      <h2>Link this phone</h2>
-      <p class="note" style="margin-top:0">The Windows password of the PC. It stays on this
-        phone — only a proof is sent.</p>
-      <div style="height:8px"></div>
-      <input id="pw" type="password" placeholder="Windows password" autocomplete="current-password"
-             style="letter-spacing:.08em;font-size:17px;font-weight:600;text-align:left">
-      <div style="height:11px"></div>
-      <p class="note" style="margin-top:0">The six digits showing on the PC.</p>
-      <div style="height:8px"></div>
-      <input id="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" autocomplete="off">
-      <div style="height:11px"></div>
-      <button class="act" id="link">LINK</button>
+      <h4>Link this phone</h4>
+      <p>The Windows password of the PC stays on this phone; only a proof is sent.</p>
+      <div class="gap"></div>
+      <label for="pw">Windows password of the PC</label>
+      <input id="pw" class="field" type="password" autocomplete="current-password">
+      <div class="gap"></div>
+      <label for="code">The six digits showing on the PC</label>
+      <input id="code" class="field code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" autocomplete="off">
+      <div class="gap"></div>
+      <button class="btn primary" id="link">Link</button>
       <div class="msg" id="pairMsg"></div>
     </div>
   </section>
 
-  <!-- ============ SEND ============ -->
+  <!-- ============ Send ============ -->
   <section class="panel" id="p-send">
     <input type="file" id="file" multiple class="hide">
-    <button class="act" id="pick">SEND TO PC</button>
+    <button class="btn primary" id="pick">Send to PC</button>
     <div class="bar" id="bar"><i id="barFill"></i></div>
     <div class="msg" id="sendMsg"></div>
-    <p class="note" id="shareTip">
-      Or from <b>Photos</b>, WhatsApp, anywhere — tap <b>Share</b> and choose
-      <b>AVNI SHARE</b>. Switch that on in SETUP.
-    </p>
+    <div class="gap"></div>
+    <div class="card">
+      <h4>From any app</h4>
+      <p id="shareTip">In Photos, WhatsApp or any app, tap Share and choose <b>Avni Share</b>. Switch that on in Setup.</p>
+    </div>
     <div class="grow"></div>
   </section>
 
-  <!-- ============ RECEIVE ============ -->
+  <!-- ============ Receive ============ -->
   <section class="panel" id="p-get">
     <div class="grow">
       <ul id="list"></ul>
@@ -151,25 +162,25 @@ li{display:flex;align-items:center;gap:10px;padding:11px 13px;background:var(--p
     </div>
   </section>
 
-  <!-- ============ SETUP ============ -->
+  <!-- ============ Setup ============ -->
   <section class="panel" id="p-setup">
     <div class="grow">
       <div class="card" id="installCard">
-        <h2>Put Avni in the share sheet</h2>
+        <h4>Put Avni Share in the share sheet</h4>
         <ol class="steps">
-          <li>Tap <b>ADD TO HOME SCREEN</b> below.</li>
-          <li>From then on, <b>AVNI SHARE</b> appears wherever you tap Share.</li>
+          <li>Tap <b>Add to home screen</b>.</li>
+          <li>From then on, <b>Avni Share</b> appears wherever you tap Share.</li>
         </ol>
-        <div style="height:11px"></div>
-        <button class="act" id="addHome">ADD TO HOME SCREEN</button>
-        <p class="note" id="addHint"></p>
+        <div class="gap"></div>
+        <button class="btn primary" id="addHome">Add to home screen</button>
+        <div class="msg" id="addHint"></div>
       </div>
-      <div style="height:9px"></div>
+      <div class="gap"></div>
       <div class="card">
-        <h2>This phone</h2>
-        <p class="note" id="who" style="margin-top:0"></p>
-        <div style="height:11px"></div>
-        <button class="act ghost" id="unlink">Unlink this phone</button>
+        <h4>This phone</h4>
+        <p id="who"></p>
+        <div class="gap"></div>
+        <button class="btn danger" id="unlink">Unlink this phone</button>
       </div>
     </div>
   </section>
@@ -182,10 +193,8 @@ li{display:flex;align-items:center;gap:10px;padding:11px 13px;background:var(--p
 const $ = id => document.getElementById(id);
 const KEY = 'avni.link.v1';
 
-// Served by Avni Hub, not Supabase Storage: Storage answers every public object with
-// `Content-Security-Policy: default-src 'none'; sandbox` - no allow-scripts, so none of
-// this would run there. The JSON stays on Storage (a CSP binds its own document, never a
-// cross-origin fetch), so the cloud address is stated, never inferred from location.
+// The JSON (claims, manifests) lives on Avni Cloud storage; the page may be served from
+// anywhere, so the cloud address is stated, never inferred from where the page lives.
 const CLOUD  = 'https://tiwfuwfzjxcsbrifcdpu.supabase.co';
 const PUBLIC = CLOUD + '/storage/v1/object/public/avni-presence/';
 
@@ -200,13 +209,12 @@ const say = (el, t, c) => { el.textContent = t; el.className = 'msg' + (c ? ' ' 
 const load  = () => { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch(e){ return null; } };
 const store = v => { try { v ? localStorage.setItem(KEY, JSON.stringify(v)) : localStorage.removeItem(KEY); } catch(e){} };
 
-async function sha256(buf){
-  const d = await crypto.subtle.digest('SHA-256', buf);
-  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2,'0')).join('');
-}
+const enc = s => new TextEncoder().encode(s);
+const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,'0')).join('');
+async function sha256(buf){ return hex(await crypto.subtle.digest('SHA-256', buf)); }
+const sha256Hex = async text => sha256(enc(text));
 
 /* ---------------- tabs: exactly one panel visible ---------------- */
-
 function show(tab){
   for (const b of $('tabs').querySelectorAll('button'))
     b.setAttribute('aria-selected', String(b.dataset.tab === tab));
@@ -216,24 +224,15 @@ function show(tab){
 }
 $('tabs').onclick = e => { const b = e.target.closest('button'); if (b) show(b.dataset.tab); };
 
-/* ---------------- linking: password never leaves this phone ---------------- */
-/* Both ends compute   key   = PBKDF2-SHA256(password, nonce, rounds)
-                       proof = HMAC(key, code)              -> the only thing sent
-                       token = HMAC(key, "avni-link-token:" + id)   -> never sent at all
-   The PC verifies the proof against the password it checked with Windows, and derives
-   the same token. A photographed QR + six digits cannot produce either. */
-
-const enc = s => new TextEncoder().encode(s);
-const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,'0')).join('');
-
+/* ---------------- linking: the password never leaves this phone ---------------- */
+/* Both ends compute  key = PBKDF2-SHA256(password, nonce, rounds); proof = HMAC(key, code) is
+   the only thing sent; token = HMAC(key, "avni-link-token:" + id) is derived, never sent. */
 async function deriveKey(password, nonce, rounds){
   const base = await crypto.subtle.importKey('raw', enc(password), 'PBKDF2', false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits(
-    {name:'PBKDF2', salt: enc(nonce), iterations: rounds, hash:'SHA-256'}, base, 256);
+  const bits = await crypto.subtle.deriveBits({name:'PBKDF2', salt: enc(nonce), iterations: rounds, hash:'SHA-256'}, base, 256);
   return crypto.subtle.importKey('raw', bits, {name:'HMAC', hash:'SHA-256'}, false, ['sign']);
 }
 const hmacHex = async (key, text) => hex(await crypto.subtle.sign('HMAC', key, enc(text)));
-const sha256Hex = async text => hex(await crypto.subtle.digest('SHA-256', enc(text)));
 
 async function doLink(){
   const code = $('code').value.replace(/\D/g,'');
@@ -260,7 +259,6 @@ async function doLink(){
                  body: JSON.stringify({name: label, proof, at: new Date().toISOString()})});
     if (!put.ok) throw new Error('Could not reach the cloud (' + put.status + ').');
 
-    // The PC answers by publishing this phone's manifest - only if the proof was right.
     say($('pairMsg'), 'Waiting for the PC to accept…');
     const until = Date.now() + 45000;
     let accepted = false;
@@ -281,9 +279,8 @@ async function doLink(){
   }
 }
 
-/* (d) "the app is on the phone without the user installing it by hand" - Android never
-   installs anything with zero taps, so the floor is ONE tap on the system's own Install
-   sheet, raised the moment the link completes rather than hidden in a menu. */
+/* Android never installs anything with zero taps: the floor is one tap on the system's own
+   Install sheet, raised the moment the link completes rather than hidden in a menu. */
 async function tryInstall(){
   if (matchMedia('(display-mode: standalone)').matches) return;
   if (installPrompt){
@@ -292,14 +289,13 @@ async function tryInstall(){
       const {outcome} = await installPrompt.userChoice;
       installPrompt = null;
       if (outcome === 'accepted') return;
-    } catch(e){ /* fall through to the SETUP card */ }
+    } catch(e){}
   }
   show('setup');
-  $('addHint').innerHTML = 'Tap <b>ADD TO HOME SCREEN</b> once and Avni Share appears in every app\'s Share menu.';
+  say($('addHint'), 'Tap Add to home screen once and Avni Share appears in every app\'s Share menu.');
 }
 
 /* ---------------- receive ---------------- */
-
 function paint(files){
   const ul = $('list'); ul.innerHTML = '';
   $('listEmpty').classList.toggle('hide', files.length > 0);
@@ -310,7 +306,7 @@ function paint(files){
     const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = f.name;
     const sz = document.createElement('span'); sz.className = 'sz'; sz.textContent = hum(f.size);
     const a  = document.createElement('a'); a.href = f.url; a.download = f.name; a.rel = 'noopener';
-    const b  = document.createElement('button'); b.className = 'act get'; b.textContent = 'GET';
+    const b  = document.createElement('button'); b.className = 'btn secondary compact'; b.textContent = 'Get';
     a.appendChild(b); li.append(nm, sz, a); ul.appendChild(li);
   }
 }
@@ -325,25 +321,22 @@ async function refresh(){
     paint(m.waiting || []);
     slots = m.slots || [];
     $('dot').className = 'dot on';
-    $('state').innerHTML = (m.pc || 'PC') + '<br>connected';
-    $('who').innerHTML = 'Linked to <b>' + (m.pc || 'PC') + '</b> as <b>' +
-                         (m.phone || 'this phone') + '</b>.<br>Updated ' + (m.at || '') + '.';
+    $('state').textContent = 'Connected';
+    $('sub').textContent = 'Linked to ' + (m.pc || 'PC');
+    $('who').innerHTML = 'Linked to <b>' + (m.pc || 'PC') + '</b> as <b>' + (m.phone || 'this phone') + '</b>. Updated ' + (m.at || '') + '.';
   } catch(e){
     $('dot').className = 'dot off';
-    $('state').innerHTML = 'PC not reachable<br>retrying';
+    $('state').textContent = 'PC not reachable';
   }
 }
 
 /* ---------------- send ---------------- */
-
 async function sendFiles(files){
   if (!files.length) return;
   if (!slots.length){ say($('sendMsg'), 'The PC is not online right now.', 'warn'); return; }
   const use = slots.slice();
-  if (files.length > use.length)
-    say($('sendMsg'), 'Sending the first ' + use.length + ' — pick the rest after.', 'warn');
-
-  busy = true; $('pick').disabled = true; $('bar').style.display = 'block';
+  if (files.length > use.length) say($('sendMsg'), 'Sending the first ' + use.length + ' — pick the rest after.', 'warn');
+  busy = true; $('pick').disabled = true; $('pick').textContent = 'Sending…'; $('bar').style.display = 'block';
   const total = Math.min(files.length, use.length);
   let done = 0;
   for (let i = 0; i < total; i++){
@@ -351,10 +344,8 @@ async function sendFiles(files){
     say($('sendMsg'), 'Sending ' + f.name + ' (' + (i+1) + ' of ' + total + ')…');
     try {
       const buf = await f.arrayBuffer();
-      let up = await fetch(slot.data, {method:'PUT', body: buf,
-                headers:{'Content-Type': f.type || 'application/octet-stream'}});
+      let up = await fetch(slot.data, {method:'PUT', body: buf, headers:{'Content-Type': f.type || 'application/octet-stream'}});
       if (!up.ok) throw new Error('upload failed (' + up.status + ')');
-      // meta LAST - it is what tells the PC the bytes are complete
       up = await fetch(slot.meta, {method:'PUT', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({name:f.name, size:f.size, sha256: await sha256(buf)})});
       if (!up.ok) throw new Error('handshake failed (' + up.status + ')');
@@ -364,12 +355,11 @@ async function sendFiles(files){
   }
   say($('sendMsg'), done + ' of ' + total + ' sent — on the PC now.', done === total ? 'ok' : 'warn');
   setTimeout(() => { $('bar').style.display='none'; $('barFill').style.width='0'; }, 1200);
-  $('pick').disabled = false; $('file').value = ''; busy = false;
+  $('pick').disabled = false; $('pick').textContent = 'Send to PC'; $('file').value = ''; busy = false;
   slots = []; refresh();
 }
 
 /* ---------------- the Android share sheet ---------------- */
-
 async function collectShared(){
   const flag = new URLSearchParams(location.search).get('shared');
   if (!flag) return;
@@ -402,24 +392,22 @@ function paintInstall(){
   const on = matchMedia('(display-mode: standalone)').matches;
   $('installCard').classList.toggle('hide', on);
   $('shareTip').innerHTML = on
-    ? 'From <b>Photos</b>, WhatsApp, anywhere — tap <b>Share</b> and choose <b>AVNI SHARE</b>.'
-    : 'Or from <b>Photos</b>, WhatsApp, anywhere — tap <b>Share</b> and choose ' +
-      '<b>AVNI SHARE</b>. Switch that on in SETUP.';
+    ? 'In Photos, WhatsApp or any app, tap Share and choose <b>Avni Share</b>.'
+    : 'In Photos, WhatsApp or any app, tap Share and choose <b>Avni Share</b>. Switch that on in Setup.';
 }
 
 $('addHome').onclick = async () => {
   if (installPrompt){
     installPrompt.prompt();
     const {outcome} = await installPrompt.userChoice;
-    if (outcome !== 'accepted') $('addHint').textContent = 'No problem — SEND TO PC still works.';
+    if (outcome !== 'accepted') say($('addHint'), 'No problem — Send to PC still works.');
     installPrompt = null;
   } else {
-    $('addHint').innerHTML = 'Open the browser menu (⋮) and tap <b>Add to Home screen</b>.';
+    say($('addHint'), 'Open the browser menu (⋮) and tap "Add to Home screen".');
   }
 };
 
 /* ---------------- boot ---------------- */
-
 function start(){
   S = load();
   const linked = !!(S && S.token && S.manifest);
@@ -434,7 +422,8 @@ function start(){
     timer = setInterval(refresh, 5000);
   } else {
     $('dot').className = 'dot';
-    $('state').innerHTML = 'not linked';
+    $('state').textContent = 'Not linked';
+    $('sub').textContent = 'Phone to PC, any network';
     $('link').disabled = false;
     $('code').value = '';
   }
@@ -444,7 +433,7 @@ $('link').onclick = doLink;
 $('code').addEventListener('keydown', e => { if (e.key === 'Enter') doLink(); });
 $('pick').onclick = () => $('file').click();
 $('file').onchange = e => sendFiles([...e.target.files]);
-$('unlink').onclick = () => { if (confirm('Unlink this phone?')){ store(null); S = null; start(); } };
+$('unlink').onclick = () => { if (confirm('Unlink this phone from the PC?')){ store(null); S = null; start(); } };
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
